@@ -1,0 +1,22 @@
+FROM php:8.4-fpm-alpine
+
+RUN apk add --no-cache \
+    bash git curl postgresql-client \
+    libpq-dev libzip-dev icu-dev rabbitmq-c-dev \
+    linux-headers $PHPIZE_DEPS \
+    && docker-php-ext-install pdo pdo_pgsql zip intl opcache \
+    && pecl install apcu amqp \
+    && docker-php-ext-enable apcu amqp \
+    && apk del linux-headers $PHPIZE_DEPS
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+COPY infra/entrypoint.dev.sh /entrypoint.sh
+COPY infra/entrypoint.worker.dev.sh /entrypoint.worker.sh
+RUN chmod +x /entrypoint.sh /entrypoint.worker.sh
+
+EXPOSE 9000
+
+ENTRYPOINT ["/entrypoint.sh"]

@@ -1,0 +1,128 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_MULTIPLE_DATABASES: identity_db,notification_db,identity_db_test,notification_db_test
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT_EXTERNAL:-5440}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "127.0.0.1:${RABBITMQ_UI_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  identity:
+    image: boilerplate-symfony-microservices-identity-dev
+    build:
+      context: ./services/identity
+      dockerfile: infra/Dockerfile.dev
+    environment: &identity-env
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: identity_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    volumes: &identity-volumes
+      - ./services/identity:/app
+      - ./packages:/packages
+      - identity_composer_cache:/root/.composer
+      - jwt_public_key:/shared-jwt
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      # Proxies "entrypoint finished" — php-fpm only starts listening after
+      # composer install + JWT keypair + migrations + seed + transport setup.
+      test: ["CMD", "nc", "-z", "127.0.0.1", "9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  identity-worker:
+    image: boilerplate-symfony-microservices-identity-dev
+    entrypoint: ["/entrypoint.worker.sh"]
+    environment: *identity-env
+    volumes: *identity-volumes
+    depends_on:
+      identity:
+        condition: service_healthy
+
+  notification:
+    image: boilerplate-symfony-microservices-notification-dev
+    build:
+      context: ./services/notification
+      dockerfile: infra/Dockerfile.dev
+    environment: &notification-env
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: notification_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    volumes: &notification-volumes
+      - ./services/notification:/app
+      - ./packages:/packages
+      - notification_composer_cache:/root/.composer
+      - jwt_public_key:/shared-jwt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      # Not just for startup ordering: notification's entrypoint blocks on
+      # /shared-jwt/public.pem existing, which only identity's entrypoint writes.
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  notification-worker:
+    image: boilerplate-symfony-microservices-notification-dev
+    entrypoint: ["/entrypoint.worker.sh"]
+    environment: *notification-env
+    volumes: *notification-volumes
+    restart: unless-stopped
+    depends_on:
+      notification:
+        condition: service_healthy
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile.dev
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-8090}:80"
+    depends_on:
+      identity:
+        condition: service_healthy
+      notification:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  identity_composer_cache:
+  notification_composer_cache:
+  jwt_public_key:

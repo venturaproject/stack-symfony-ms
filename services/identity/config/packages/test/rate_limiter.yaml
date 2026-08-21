@@ -1,0 +1,21 @@
+framework:
+    rate_limiter:
+        login_limiter:
+            policy: 'fixed_window'
+            limit: 1000
+            interval: '1 minute'
+
+        refresh_token_limiter:
+            policy: 'fixed_window'
+            limit: 1000
+            interval: '1 minute'
+
+        totp_disable_limiter:
+            policy: 'fixed_window'
+            limit: 1000
+            interval: '1 minute'
+
+        totp_confirm_limiter:
+            policy: 'fixed_window'
+            limit: 1000
+            interval: '1 minute'

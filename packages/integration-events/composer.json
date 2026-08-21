@@ -1,0 +1,15 @@
+{
+    "name": "boilerplate/integration-events",
+    "version": "1.0.0",
+    "description": "Message shapes (DTOs) published to and consumed from the RabbitMQ `domain_events` exchange. Deliberately separate from shared-kernel: this is the wire contract between services, not framework plumbing — kept intentionally tiny (scalars only, no behavior) and versioned by adding new classes rather than editing existing ones.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "IntegrationEvents\\": "src/"
+        }
+    }
+}

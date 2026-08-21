@@ -1,0 +1,18 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: Identity Service API
+            description: Auth, users, roles, permissions, API clients, security settings, TOTP.
+            version: 1.0.0
+        components:
+            securitySchemes:
+                bearerAuth:
+                    type: http
+                    scheme: bearer
+                    bearerFormat: JWT
+        security:
+            - bearerAuth: []
+    areas:
+        default:
+            path_patterns:
+                - ^/api

@@ -1,0 +1,18 @@
+lexik_jwt_authentication:
+    # No secret_key/pass_phrase here on purpose — this service only ever verifies
+    # tokens, never issues them. public.pem is Identity's public key, copied in at
+    # container start from the `jwt_public_key` shared volume (see entrypoint.dev.sh);
+    # a documented local-dev simplification for what a JWKS endpoint would do in
+    # production. Only Identity ever holds the private key.
+    public_key: '%kernel.project_dir%/config/jwt/public.pem'
+    encoder:
+        service: lexik_jwt_authentication.encoder.lcobucci
+        signature_algorithm: RS256
+    token_extractors:
+        authorization_header:
+            enabled: true
+            prefix:  Bearer
+            name:    Authorization
+        cookie:
+            enabled: true
+            name:    access_token

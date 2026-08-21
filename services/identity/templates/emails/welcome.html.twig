@@ -1,0 +1,19 @@
+{% extends 'emails/layout.html.twig' %}
+
+{% block title %}Welcome!{% endblock %}
+
+{% block body %}
+    <h1>Welcome!</h1>
+    <p>Your account has been created. Use the password supplied through the approved onboarding channel to sign in.</p>
+
+    <div class="credentials">
+        <table>
+            <tr>
+                <td>Email</td>
+                <td>{{ userEmail }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <p class="notice">For security, never share your password by email.</p>
+{% endblock %}

@@ -1,0 +1,19 @@
+<?php
+
+declare(strict_types=1);
+
+use Doctrine\ORM\Mapping\ClassMetadata;
+
+/* @var ClassMetadata $metadata */
+$metadata->setPrimaryTable(['name' => 'notifications']);
+
+$metadata->mapField(['fieldName' => 'id', 'type' => 'string', 'id' => true, 'length' => 36]);
+$metadata->setIdGeneratorType(ClassMetadata::GENERATOR_TYPE_CUSTOM);
+$metadata->setCustomGeneratorDefinition(['class' => 'Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator']);
+
+$metadata->mapField(['fieldName' => 'title', 'type' => 'string', 'length' => 255]);
+$metadata->mapField(['fieldName' => 'message', 'type' => 'text']);
+$metadata->mapField(['fieldName' => 'type', 'type' => 'string', 'length' => 50]);
+$metadata->mapField(['fieldName' => 'readAt', 'type' => 'datetime_immutable', 'nullable' => true, 'columnName' => 'read_at']);
+$metadata->mapField(['fieldName' => 'createdAt', 'type' => 'datetime_immutable', 'columnName' => 'created_at']);
+$metadata->mapField(['fieldName' => 'userId', 'type' => 'string', 'length' => 36, 'nullable' => true, 'columnName' => 'user_id']);

@@ -1,0 +1,18 @@
+security:
+    # No `providers` block: this service holds no User table. Every request's
+    # identity comes entirely from the JWT itself — see StatelessJwtAuthenticator.
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        api:
+            pattern: ^/api
+            stateless: true
+            custom_authenticators:
+                - SharedKernel\Infrastructure\Security\StatelessJwtAuthenticator
+
+    access_control:
+        - { path: ^/api/health, roles: PUBLIC_ACCESS }
+        - { path: ^/api/notifications/doc, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

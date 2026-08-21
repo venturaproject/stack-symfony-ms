@@ -1,0 +1,39 @@
+framework:
+    rate_limiter:
+        login_limiter:
+            policy: 'sliding_window'
+            limit: 5
+            interval: '1 minute'
+            lock_factory: lock.factory
+
+        refresh_token_limiter:
+            policy: 'sliding_window'
+            limit: 30
+            interval: '1 minute'
+            lock_factory: lock.factory
+
+        api_client_token_limiter:
+            policy: 'sliding_window'
+            limit: 5
+            interval: '1 minute'
+            lock_factory: lock.factory
+
+        api_client_refresh_limiter:
+            policy: 'sliding_window'
+            limit: 30
+            interval: '1 minute'
+            lock_factory: lock.factory
+
+        # Keyed by user id, not IP: the account under attack is fixed regardless of
+        # where the request comes from (e.g. a stolen short-lived access token).
+        totp_disable_limiter:
+            policy: 'sliding_window'
+            limit: 5
+            interval: '1 minute'
+            lock_factory: lock.factory
+
+        totp_confirm_limiter:
+            policy: 'sliding_window'
+            limit: 10
+            interval: '1 minute'
+            lock_factory: lock.factory

@@ -1,0 +1,26 @@
+parameters:
+    level: 7
+    paths:
+        - src
+    excludePaths:
+        - src/Infrastructure/Persistence/Doctrine/Mapping
+    symfony:
+        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+    doctrine:
+        objectManagerLoader: tests/object-manager.php
+
+    ignoreErrors:
+        - message: '#type mapping mismatch#'
+          path: src/Domain/Auth/Entity/RefreshToken.php
+        - message: '#type mapping mismatch#'
+          path: src/Domain/ApiClient/Entity/ApiClientToken.php
+        - message: '#should return non-empty-string but returns string#'
+          path: src/Domain/Auth/Entity/User.php
+        - message: '#should return non-empty-string but returns string#'
+          path: src/Domain/ApiClient/Entity/ApiClient.php
+        # otphp's non-empty-string typehints are stricter than our plain `string` params —
+        # the values are guaranteed non-empty by their call sites (generated secrets,
+        # Assert\NotBlank-validated codes, a non-empty TOTP_ISSUER env var), not worth a
+        # runtime guard just to satisfy the type.
+        - message: '#expects non-empty-string, string given#'
+          path: src/Infrastructure/Security/Totp/OtpHpTotpService.php
