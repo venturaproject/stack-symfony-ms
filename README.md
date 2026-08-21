@@ -1,96 +1,95 @@
-# boilerplate-symfony-microservices
+# Symfony Microservices Boilerplate
 
-A Symfony 8.1 DDD/CQRS monolith ([`boilerplate-symfony-ddd`](../boilerplate-symfony-ddd)) decomposed into
-independently deployable services, orchestrated with Docker Compose. This is a **functional reference**,
-not a production-scale system: the goal is to `docker compose up` and see real inter-service async
-messaging (RabbitMQ) and stateless JWT verification actually working across separate processes.
+Functional Symfony 8.1 reference for building DDD/CQRS microservices locally with Docker Compose. It provides independently running services, asynchronous integration events, stateless JWT authentication, a single API entrypoint, and an isolated database per service.
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design writeup.
+It is designed for local development and learning, not as a production deployment manifest. See [Architecture](docs/ARCHITECTURE.md) and the [security review](docs/SECURITY-REVIEW.md) for design decisions and known trade-offs.
 
-## Phase 1 (current)
+## Included services
 
-- **`identity`** — Auth, Users, Roles, Permissions, ApiClients, Security Policy, TOTP, JWT issuance (owns the
-  only private key in the system).
-- **`notification`** — in-app notifications, populated by consuming integration events off RabbitMQ.
-- **`gateway`** — nginx, single origin, path-based routing to each service.
-- **`rabbitmq`** — topic exchange `domain_events`.
-- **`postgres`** — one container, one database per service (`identity_db`, `notification_db`).
+| Service | Responsibility |
+| --- | --- |
+| `gateway` | nginx API gateway and single browser origin |
+| `identity` | Authentication, users, roles, permissions, API clients, TOTP, and JWT issuance |
+| `notification` | User notifications consumed from RabbitMQ integration events |
+| `postgres` | One database per service, plus separate test databases |
+| `rabbitmq` | `domain_events` topic exchange and local management UI |
 
-Phase 2 (`catalog`, `customer`, `order`) is designed but not yet built.
+`identity` publishes `IntegrationEvents\Identity\UserCreated` events. `notification` consumes them and creates the user's welcome notification. Identity owns the JWT private key; Notification verifies access tokens using the shared public key only.
 
-## Running it
+## Requirements
+
+- Docker Desktop or Docker Engine with Docker Compose v2
+- Available local ports: `8090`, `15672`, and `5440`
+
+All published ports are bound to `127.0.0.1`, so the stack is not exposed to the local network by default.
+
+## Start the stack
 
 ```bash
-docker compose -f compose.dev.yml up -d
+docker compose -f compose.dev.yml up -d --build
+docker compose -f compose.dev.yml ps
 ```
 
-First boot is slow (each service runs its own `composer install`, generates its JWT keypair or waits for
-Identity's public key, and auto-generates its initial migration from current entity mappings). Everything
-is reachable through the gateway on `http://localhost:8090`. RabbitMQ's management UI is on
-`http://localhost:15672` (guest/guest).
+On first start, the services install Composer dependencies, create or share their JWT keys, run migrations, initialize transports, and seed the development administrator. Wait until `identity` and `notification` report `healthy`.
 
-Seeded login: `admin@admin.com` / `admin123`.
+| Resource | URL |
+| --- | --- |
+| API gateway | http://localhost:8090 |
+| Identity OpenAPI | http://localhost:8090/api/doc |
+| Notification OpenAPI | http://localhost:8090/api/notifications/doc |
+| RabbitMQ management | http://localhost:15672 |
+| PostgreSQL | `127.0.0.1:5440` |
 
-## API docs
+Development credentials:
 
-Each service exposes interactive Swagger UI (OpenAPI, via `nelmio/api-doc-bundle`), served through the
-gateway on the same origin as the API itself:
+- Administrator: `admin@admin.com` / `admin123`
+- RabbitMQ: `guest` / `guest`
+- PostgreSQL: `postgres` / `postgres`
 
-- Identity: `http://localhost:8090/api/doc` (raw spec at `/api/doc.json`)
-- Notification: `http://localhost:8090/api/notifications/doc` (raw spec at `/api/notifications/doc.json`)
+These credentials are intentionally local-only. Never reuse them outside this environment.
 
-To call protected endpoints from the UI: `POST /api/auth/login` with the seeded credentials above, copy
-`accessToken` from the response, then click **Authorize** and paste the raw token — no `Bearer ` prefix,
-Swagger UI adds that itself. The same token works against both services' docs, since Notification verifies
-it statelessly against Identity's public key (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)).
+## Verify the API
 
-## Testing it
+```bash
+curl http://localhost:8090/api/health
 
-Each service has its own PHPUnit suite (Unit + Functional; an empty `Integration` suite is scaffolded for
-when there's something worth testing at that level), run inside the container so it uses the same PHP/deps
-as the app:
+curl -X POST http://localhost:8090/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@admin.com","password":"admin123"}'
+```
+
+The login response sets HTTP-only access and refresh cookies and includes an access token for API clients and Swagger UI. Protected requests can send it with `Authorization: Bearer <token>`.
+
+## Tests and quality checks
+
+Run checks inside their matching service container to use the same PHP version and extensions as the application:
 
 ```bash
 docker compose -f compose.dev.yml exec identity php bin/phpunit
 docker compose -f compose.dev.yml exec notification php bin/phpunit
-```
 
-Functional tests hit a real, separate test database (`identity_db_test` / `notification_db_test`) through
-`DAMADoctrineTestBundle`, which wraps each test in a transaction and rolls it back afterwards — nothing
-written by a test persists. A fresh `docker compose -f compose.dev.yml down -v && up -d` creates and
-migrates both test databases automatically alongside the dev ones. If you're upgrading an existing stack
-that predates this, create and migrate them once by hand:
-
-```bash
-docker exec boilerplate-symfony-microservices-postgres-1 psql -U postgres -c "CREATE DATABASE identity_db_test;"
-docker exec boilerplate-symfony-microservices-postgres-1 psql -U postgres -c "CREATE DATABASE notification_db_test;"
-docker compose -f compose.dev.yml exec -e APP_ENV=test identity php bin/console doctrine:migrations:migrate --no-interaction
-docker compose -f compose.dev.yml exec -e APP_ENV=test notification php bin/console doctrine:migrations:migrate --no-interaction
-```
-
-## Static analysis & style
-
-Both services have PHPStan (level 7) and PHP CS Fixer (`@Symfony` + `@Symfony:risky`) wired up as composer
-scripts:
-
-```bash
 docker compose -f compose.dev.yml exec identity composer phpstan
-docker compose -f compose.dev.yml exec identity composer cs-check   # dry-run, shows the diff
-docker compose -f compose.dev.yml exec identity composer cs-fix     # applies it
+docker compose -f compose.dev.yml exec notification composer phpstan
 ```
 
-(same three commands work against `notification`).
+Functional tests use dedicated test databases and are rolled back by `DAMADoctrineTestBundle`.
 
-## Known local-dev quirks
+## Useful commands
 
-- **RabbitMQ's very first container start can fail** with `eacces` reading `.erlang.cookie` — a known
-  Docker Desktop for Mac issue with how anonymous volumes get populated from the image on first creation.
-  Harmless and non-deterministic; `docker compose -f compose.dev.yml restart rabbitmq` fixes it.
-- **The web debug toolbar and profiler (`/_wdt`, `/_profiler`) are not reachable through the gateway.**
-  This is deliberate, not an oversight — see the comment in `gateway/nginx.dev.conf`: nginx has no reliable
-  way to distinguish "the person running this stack" from "anyone who can reach the published gateway port,"
-  so routing them through would hand out stack traces, SQL with bound parameters, and request/response
-  headers (including cookies) to anyone on the network. Neither service's port (9000, FastCGI) is published
-  to the host, so there's no direct route in as-is; if you need the toolbar during local debugging, add a
-  temporary `ports:` mapping for that service in `compose.dev.yml` (or exec into a container on the same
-  Docker network) rather than opening it up through the shared gateway.
+```bash
+# Follow application logs
+docker compose -f compose.dev.yml logs -f identity notification
+
+# Stop containers while retaining database data
+docker compose -f compose.dev.yml down
+
+# Reset all local state, including databases and generated JWT keys
+docker compose -f compose.dev.yml down -v
+```
+
+## Security and production notes
+
+- JWT keys, Composer dependencies, and runtime caches are excluded from Git.
+- The gateway applies security headers and does not route the Symfony profiler or debug toolbar.
+- Refresh sessions are revoked after sensitive user access changes.
+- This Compose file deliberately uses development credentials, local volumes, a shared JWT public-key volume, and a single PostgreSQL container. Production requires managed secrets, TLS, reviewed migrations, independent data stores or failure domains, key distribution through JWKS, and service-to-service authentication.
