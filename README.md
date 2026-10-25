@@ -72,6 +72,16 @@ All published ports are bound to `127.0.0.1`, so the stack is not exposed to the
 
 ## Start the stack
 
+Environment files are local-only and are not committed. On a fresh clone, prepare the development and test
+configuration from the safe examples before starting Docker Compose:
+
+```bash
+cp services/identity/.env.example services/identity/.env
+cp services/identity/.env.test.example services/identity/.env.test
+cp services/notification/.env.example services/notification/.env
+cp services/notification/.env.test.example services/notification/.env.test
+```
+
 ```bash
 docker compose -f compose.dev.yml up -d --build
 docker compose -f compose.dev.yml ps

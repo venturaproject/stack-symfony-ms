@@ -1,5 +1,7 @@
-/.env.local
-/.env.*.local
+/.env
+/.env.*
+!/.env.example
+!/.env.test.example
 /config/jwt/private.pem
 /config/jwt/public.pem
 /var/
