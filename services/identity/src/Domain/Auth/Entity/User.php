@@ -17,6 +17,7 @@ use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use InvalidArgumentException;
+use LogicException;
 use SharedKernel\Domain\Shared\HasDomainEvents;
 use SharedKernel\Domain\Shared\RecordsDomainEvents;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -57,6 +58,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, HasDoma
     public function getId(): ?string
     {
         return $this->id;
+    }
+
+    /** @throws LogicException if called before this entity has been persisted */
+    public function getIdOrFail(): string
+    {
+        return $this->id ?? throw new LogicException(self::class.' has no id yet — not persisted.');
     }
 
     public function getEmail(): string
@@ -215,7 +222,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, HasDoma
 
     public function recordUpdated(): void
     {
-        $this->raise(new UserUpdated($this->id, $this->email));
+        $this->raise(new UserUpdated($this->getIdOrFail(), $this->email));
     }
 
     public function changeEmail(string $newEmail): void
@@ -226,19 +233,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, HasDoma
     public function changePassword(string $hashedPassword): void
     {
         $this->passwordHash = $hashedPassword;
-        $this->raise(new UserPasswordChanged($this->id, $this->email));
+        $this->raise(new UserPasswordChanged($this->getIdOrFail(), $this->email));
     }
 
     public function deactivate(): void
     {
         $this->active = false;
-        $this->raise(new UserDeactivated($this->id, $this->email));
+        $this->raise(new UserDeactivated($this->getIdOrFail(), $this->email));
     }
 
     public function activate(): void
     {
         $this->active = true;
-        $this->raise(new UserActivated($this->id, $this->email));
+        $this->raise(new UserActivated($this->getIdOrFail(), $this->email));
     }
 
     public function isTotpEnabled(): bool

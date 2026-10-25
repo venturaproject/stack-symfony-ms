@@ -21,6 +21,7 @@ use SharedKernel\Application\Shared\Bus\CommandBusInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -51,9 +52,15 @@ class AuthController extends AbstractController
             return null;
         }
 
-        $payload = $this->jwtManager->decode($token);
+        $decoded = $this->jwtManager->decode($token);
+        if (!\is_array($decoded)) {
+            return null;
+        }
 
-        return \is_array($payload) ? $payload : null;
+        /** @var array<string, mixed> $payload JWT claims are always a JSON object, so string-keyed. */
+        $payload = $decoded;
+
+        return $payload;
     }
 
     /**
@@ -112,7 +119,7 @@ class AuthController extends AbstractController
     #[Route('/logout', methods: ['POST'])]
     public function logout(#[CurrentUser] User $user): JsonResponse
     {
-        $this->commandBus->dispatch(new LogoutCommand($user->getId()));
+        $this->commandBus->dispatch(new LogoutCommand($user->getIdOrFail()));
         $response = $this->json(null, Response::HTTP_NO_CONTENT);
         $this->cookieFactory->clearCookies($response);
 
@@ -171,7 +178,7 @@ class AuthController extends AbstractController
     public function updateMe(#[CurrentUser] User $user, Request $request): JsonResponse
     {
         $cmd = $this->serializer->deserialize($request->getContent(), UpdateProfileCommand::class, 'json');
-        $cmd->userId = $user->getId();
+        $cmd->userId = $user->getIdOrFail();
         $errors = $this->validator->validate($cmd);
 
         if (\count($errors) > 0) {
@@ -186,12 +193,12 @@ class AuthController extends AbstractController
     {
         $file = $request->files->get('avatar');
 
-        if (null === $file) {
+        if (!$file instanceof UploadedFile) {
             return $this->json(['message' => 'No file uploaded'], Response::HTTP_BAD_REQUEST);
         }
 
         return $this->json($this->commandBus->dispatch(
-            new UploadAvatarCommand($user->getId(), $file->getPathname())
+            new UploadAvatarCommand($user->getIdOrFail(), $file->getPathname())
         ));
     }
 }

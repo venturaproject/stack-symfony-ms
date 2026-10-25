@@ -30,6 +30,7 @@ final class OnUserCreatedIntegrationEvent
             message: "The user {$event->email} has been created.",
             type: 'success',
             userId: null,
+            sourceEventId: $event->eventId,
         ));
     }
 }

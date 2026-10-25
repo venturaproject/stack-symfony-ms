@@ -1,13 +1,13 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
       POSTGRES_MULTIPLE_DATABASES: identity_db,notification_db,identity_db_test,notification_db_test
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata18:/var/lib/postgresql
       - ./infra/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
     ports:
       - "127.0.0.1:${POSTGRES_PORT_EXTERNAL:-5440}:5432"
@@ -27,6 +27,16 @@ services:
       timeout: 5s
       retries: 20
       start_period: 15s
+
+  # SMTP catcher for local dev — identity's MAILER_DSN (smtp://mailpit:1025) points
+  # here. No healthcheck: the image is a single static binary (no shell/wget/curl to
+  # exec), and nothing needs to block on it — mail is sent via the `async` transport,
+  # so if this isn't up yet Messenger just retries and eventually parks in `failed`
+  # (see messenger.php) instead of identity or its worker failing to start.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8028}:8025"
 
   identity:
     image: boilerplate-symfony-microservices-identity-dev
@@ -49,6 +59,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     healthcheck:
       # Proxies "entrypoint finished" — php-fpm only starts listening after
       # composer install + JWT keypair + migrations + seed + transport setup.
@@ -66,6 +78,8 @@ services:
     depends_on:
       identity:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
   notification:
     image: boilerplate-symfony-microservices-notification-dev
@@ -122,7 +136,7 @@ services:
         condition: service_healthy
 
 volumes:
-  pgdata:
+  pgdata18:
   identity_composer_cache:
   notification_composer_cache:
   jwt_public_key:

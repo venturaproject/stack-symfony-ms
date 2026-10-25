@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Application\AuditLog\Query;
 
 use App\Application\AuditLog\DTO\PagedAuditLogResponse;
-use App\Domain\AuditLog\Repository\AuditLogRepositoryInterface;
+use App\Application\AuditLog\Repository\AuditLogRepositoryInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler(bus: 'query.bus', method: 'handle')]

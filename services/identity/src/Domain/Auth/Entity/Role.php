@@ -9,6 +9,7 @@ use App\Domain\Auth\Event\RolePermissionsChanged;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use LogicException;
 use SharedKernel\Domain\Shared\HasDomainEvents;
 use SharedKernel\Domain\Shared\RecordsDomainEvents;
 
@@ -32,6 +33,12 @@ class Role implements HasDomainEvents
     public function getId(): ?string
     {
         return $this->id;
+    }
+
+    /** @throws LogicException if called before this entity has been persisted */
+    public function getIdOrFail(): string
+    {
+        return $this->id ?? throw new LogicException(self::class.' has no id yet — not persisted.');
     }
 
     public function getName(): string
@@ -84,6 +91,6 @@ class Role implements HasDomainEvents
     public function recordPermissionsChanged(): void
     {
         $names = $this->permissions->map(static fn (Permission $p) => $p->getName())->toArray();
-        $this->raise(new RolePermissionsChanged($this->id, $this->name, $names));
+        $this->raise(new RolePermissionsChanged($this->getIdOrFail(), $this->name, $names));
     }
 }

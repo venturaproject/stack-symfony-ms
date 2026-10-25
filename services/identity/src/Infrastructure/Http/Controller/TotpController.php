@@ -49,7 +49,7 @@ class TotpController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        $code = \is_array($data) ? (string) ($data['code'] ?? '') : '';
+        $code = \is_array($data) && \is_string($data['code'] ?? null) ? $data['code'] : '';
 
         if ('' === $code) {
             return $this->json(['message' => 'Validation failed'], Response::HTTP_BAD_REQUEST);
@@ -80,7 +80,7 @@ class TotpController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        $password = \is_array($data) ? (string) ($data['password'] ?? '') : '';
+        $password = \is_array($data) && \is_string($data['password'] ?? null) ? $data['password'] : '';
 
         if ('' === $password) {
             return $this->json(['message' => 'Validation failed'], Response::HTTP_BAD_REQUEST);

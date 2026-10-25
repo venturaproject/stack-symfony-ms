@@ -13,6 +13,12 @@ namespace IntegrationEvents\Identity;
 final readonly class UserCreated
 {
     public function __construct(
+        /**
+         * Unique per publish attempt, generated once at the source (see
+         * PublishUserCreatedIntegrationEvent). RabbitMQ is at-least-once, so any consumer
+         * that isn't naturally idempotent needs this to deduplicate redeliveries.
+         */
+        public string $eventId,
         public string $userId,
         public string $email,
     ) {

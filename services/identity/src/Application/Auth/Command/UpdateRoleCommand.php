@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Application\Auth\Command;
 
-final readonly class UpdateRoleCommand
+use Symfony\Component\Validator\Constraints as Assert;
+
+final class UpdateRoleCommand
 {
-    public function __construct(
-        public string $id,
-        public string $name,
-        public ?string $description,
-    ) {
-    }
+    /** Set from the route path param, not the request body — see RoleController::update(). */
+    public string $id = '';
+
+    #[Assert\NotBlank]
+    public string $name = '';
+
+    public ?string $description = null;
 }

@@ -1,6 +1,6 @@
 <?php
 
-use App\Domain\AuditLog\Repository\AuditLogRepositoryInterface;
+use App\Application\AuditLog\Repository\AuditLogRepositoryInterface;
 use App\Infrastructure\AuditLog\AuditLogRecorder;
 use App\Infrastructure\AuditLog\AuditLogSubscriber;
 use App\Infrastructure\Persistence\Doctrine\DoctrineAuditLogRepository;

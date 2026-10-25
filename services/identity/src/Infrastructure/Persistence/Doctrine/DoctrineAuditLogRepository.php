@@ -6,8 +6,8 @@ namespace App\Infrastructure\Persistence\Doctrine;
 
 use App\Application\AuditLog\DTO\AuditLogEntryResponse;
 use App\Application\AuditLog\DTO\PagedAuditLogResponse;
+use App\Application\AuditLog\Repository\AuditLogRepositoryInterface;
 use App\Domain\AuditLog\Entity\AuditLog;
-use App\Domain\AuditLog\Repository\AuditLogRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -36,7 +36,11 @@ final class DoctrineAuditLogRepository extends ServiceEntityRepository implement
             ->getQuery()
             ->getOneOrNullResult();
 
-        return $result['hash'] ?? self::GENESIS_HASH;
+        if (!\is_array($result) || !\is_string($result['hash'] ?? null)) {
+            return self::GENESIS_HASH;
+        }
+
+        return $result['hash'];
     }
 
     public function findByActorId(string $actorId, int $page, int $size): PagedAuditLogResponse

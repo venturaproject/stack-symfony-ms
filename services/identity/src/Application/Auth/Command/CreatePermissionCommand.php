@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Application\Auth\Command;
 
-final readonly class CreatePermissionCommand
+use Symfony\Component\Validator\Constraints as Assert;
+
+final class CreatePermissionCommand
 {
-    public function __construct(
-        public string $name,
-        public ?string $description,
-    ) {
-    }
+    #[Assert\NotBlank]
+    public string $name = '';
+
+    public ?string $description = null;
 }

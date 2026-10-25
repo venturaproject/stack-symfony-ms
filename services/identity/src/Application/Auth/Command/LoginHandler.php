@@ -63,7 +63,7 @@ final class LoginHandler
 
         $this->refreshTokens->save(new RefreshToken(hash('sha256', $refreshValue), $user, $expiresAt));
 
-        $this->dispatcher->dispatch(new UserLoggedIn($user->getId(), $user->getUserIdentifier()));
+        $this->dispatcher->dispatch(new UserLoggedIn($user->getIdOrFail(), $user->getUserIdentifier()));
 
         return new LoginResult(
             accessToken: $accessToken,

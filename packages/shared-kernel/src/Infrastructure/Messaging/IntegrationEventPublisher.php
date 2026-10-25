@@ -4,25 +4,31 @@ declare(strict_types=1);
 
 namespace SharedKernel\Infrastructure\Messaging;
 
+use SharedKernel\Application\Shared\Messaging\IntegrationEventPublisherInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Messenger\Stamp\AmqpStamp;
 
 /**
- * Publishes an integration event (a plain DTO from `IntegrationEvents\*`) to the
- * `domain_events` topic exchange under the given routing key. Backed by a dedicated
- * `event.bus` that every service routes entirely to its `amqp` transport — kept
- * separate from `command.bus`/`query.bus`, which stay synchronous/in-process.
+ * Publishes an integration event (a plain DTO from `IntegrationEvents\*`) onto the
+ * transactional outbox — a dedicated `event.bus` that each publishing service routes
+ * entirely to its own local `async` (Doctrine) transport, per messenger.php's routing.
+ * That transport shares the DB connection with the entity manager, so the outbox row
+ * commits atomically with whatever domain write raised the event: either both happen
+ * or neither does. Never dispatched straight to `amqp` — a dedicated per-event relay
+ * handler (e.g. RelayUserCreatedToBroker), consumed from the outbox by the service's
+ * worker, is what actually forwards it to the real `domain_events` exchange, retrying
+ * independently of this request if the broker is briefly unavailable. Kept separate
+ * from `command.bus`/`query.bus`, which stay synchronous/in-process.
  */
-final class IntegrationEventPublisher
+final class IntegrationEventPublisher implements IntegrationEventPublisherInterface
 {
     public function __construct(
         #[Autowire(service: 'event.bus')] private readonly MessageBusInterface $eventBus,
     ) {
     }
 
-    public function publish(object $event, string $routingKey): void
+    public function publish(object $event): void
     {
-        $this->eventBus->dispatch($event, [new AmqpStamp($routingKey)]);
+        $this->eventBus->dispatch($event);
     }
 }

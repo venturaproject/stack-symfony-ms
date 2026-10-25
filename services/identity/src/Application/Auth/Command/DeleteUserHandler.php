@@ -15,8 +15,7 @@ final class DeleteUserHandler
     public function __construct(
         private readonly UserRepositoryInterface $users,
         private readonly RefreshTokenRepositoryInterface $refreshTokens,
-    )
-    {
+    ) {
     }
 
     public function handle(DeleteUserCommand $cmd): void

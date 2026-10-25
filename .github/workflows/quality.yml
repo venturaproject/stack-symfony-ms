@@ -1,0 +1,30 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start development stack
+        run: docker compose -f compose.dev.yml up --pull always -d --build --wait --wait-timeout 240
+
+      - name: Run tests and quality checks
+        run: make quality
+
+      - name: Collect service logs on failure
+        if: failure()
+        run: docker compose -f compose.dev.yml logs --no-color
+
+      - name: Stop stack
+        if: always()
+        run: docker compose -f compose.dev.yml down -v

@@ -35,9 +35,17 @@ class ApiClientController extends AbstractController
     #[Route('', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
-        $data = json_decode($request->getContent(), true) ?? [];
-        $name = trim((string) ($data['name'] ?? ''));
-        $scopes = (array) ($data['scopes'] ?? []);
+        $decoded = json_decode($request->getContent(), true);
+        $data = \is_array($decoded) ? $decoded : [];
+
+        $name = \is_string($data['name'] ?? null) ? trim($data['name']) : '';
+
+        $scopes = [];
+        foreach (\is_array($data['scopes'] ?? null) ? $data['scopes'] : [] as $scope) {
+            if (\is_string($scope)) {
+                $scopes[] = $scope;
+            }
+        }
 
         if ('' === $name || [] === $scopes) {
             return $this->json(['message' => 'name and scopes are required'], Response::HTTP_UNPROCESSABLE_ENTITY);

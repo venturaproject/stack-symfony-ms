@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\AuditLog;
 
+use App\Application\AuditLog\Repository\AuditLogRepositoryInterface;
 use App\Domain\AuditLog\Entity\AuditLog;
-use App\Domain\AuditLog\Repository\AuditLogRepositoryInterface;
+use App\Domain\Auth\Entity\User;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -72,9 +73,7 @@ final class AuditLogRecorder
             return [null, null];
         }
 
-        $id = method_exists($user, 'getId') ? (string) $user->getId() : null;
-
-        return [$id, $user->getUserIdentifier()];
+        return [$user instanceof User ? $user->getId() : null, $user->getUserIdentifier()];
     }
 
     /**

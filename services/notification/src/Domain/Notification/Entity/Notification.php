@@ -7,6 +7,7 @@ namespace App\Domain\Notification\Entity;
 use App\Domain\Notification\Event\NotificationCreated;
 use App\Domain\Notification\Exception\NotificationNotFoundException;
 use DateTimeImmutable;
+use LogicException;
 use SharedKernel\Domain\Shared\HasDomainEvents;
 use SharedKernel\Domain\Shared\RecordsDomainEvents;
 
@@ -30,6 +31,12 @@ class Notification implements HasDomainEvents
     public function getId(): ?string
     {
         return $this->id;
+    }
+
+    /** @throws LogicException if called before this entity has been persisted */
+    public function getIdOrFail(): string
+    {
+        return $this->id ?? throw new LogicException(self::class.' has no id yet — not persisted.');
     }
 
     public function getTitle(): string

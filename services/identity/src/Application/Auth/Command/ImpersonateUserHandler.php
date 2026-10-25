@@ -44,7 +44,7 @@ final class ImpersonateUserHandler
         ]);
 
         $this->dispatcher->dispatch(new UserImpersonated(
-            $target->getId(),
+            $target->getIdOrFail(),
             $target->getUserIdentifier(),
             $cmd->impersonatorEmail,
         ));

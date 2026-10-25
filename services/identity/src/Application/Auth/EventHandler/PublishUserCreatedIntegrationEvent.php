@@ -6,8 +6,9 @@ namespace App\Application\Auth\EventHandler;
 
 use App\Domain\Auth\Event\UserCreated;
 use IntegrationEvents\Identity\UserCreated as UserCreatedIntegrationEvent;
-use SharedKernel\Infrastructure\Messaging\IntegrationEventPublisher;
+use SharedKernel\Application\Shared\Messaging\IntegrationEventPublisherInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * The cross-service counterpart of OnUserCreatedHandler in the monolith (which
@@ -17,7 +18,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  */
 final class PublishUserCreatedIntegrationEvent implements EventSubscriberInterface
 {
-    public function __construct(private readonly IntegrationEventPublisher $publisher)
+    public function __construct(private readonly IntegrationEventPublisherInterface $publisher)
     {
     }
 
@@ -29,8 +30,11 @@ final class PublishUserCreatedIntegrationEvent implements EventSubscriberInterfa
     public function handle(UserCreated $event): void
     {
         $this->publisher->publish(
-            new UserCreatedIntegrationEvent(userId: (string) $event->userId, email: $event->email),
-            'identity.user_created',
+            new UserCreatedIntegrationEvent(
+                eventId: Uuid::v4()->toRfc4122(),
+                userId: (string) $event->userId,
+                email: $event->email,
+            ),
         );
     }
 }

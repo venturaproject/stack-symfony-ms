@@ -6,6 +6,10 @@ return static function (ContainerConfigurator $container): void {
     $container->extension('framework', [
         'messenger' => [
             'default_bus' => 'command.bus',
+            // After retries on `amqp` are exhausted, park the message here instead of
+            // losing it or requeueing forever — inspect/replay with `messenger:failed:show`
+            // and `messenger:failed:retry`.
+            'failure_transport' => 'failed',
             'buses' => [
                 'command.bus' => null,
                 'query.bus' => null,
@@ -31,6 +35,7 @@ return static function (ContainerConfigurator $container): void {
                         ],
                     ],
                 ],
+                'failed' => 'doctrine://default?queue_name=failed',
             ],
         ],
     ]);

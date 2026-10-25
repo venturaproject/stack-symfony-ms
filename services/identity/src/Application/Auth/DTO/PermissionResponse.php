@@ -18,7 +18,7 @@ final readonly class PermissionResponse
     public static function from(Permission $permission): self
     {
         return new self(
-            id: $permission->getId(),
+            id: $permission->getIdOrFail(),
             name: $permission->getName(),
             description: $permission->getDescription(),
         );

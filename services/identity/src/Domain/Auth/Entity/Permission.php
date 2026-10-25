@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Auth\Entity;
 
 use DateTimeImmutable;
+use LogicException;
 
 class Permission
 {
@@ -21,6 +22,12 @@ class Permission
     public function getId(): ?string
     {
         return $this->id;
+    }
+
+    /** @throws LogicException if called before this entity has been persisted */
+    public function getIdOrFail(): string
+    {
+        return $this->id ?? throw new LogicException(self::class.' has no id yet — not persisted.');
     }
 
     public function getName(): string

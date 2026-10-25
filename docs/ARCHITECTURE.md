@@ -45,10 +45,12 @@ Each service owns its bounded context's `Domain/` + `Application/` layers wholes
 the monolith (deleted contexts it doesn't own, deleted their handlers/mappings/config). Nothing is shared
 between services except:
 
-- **`packages/shared-kernel`** — framework plumbing with zero domain logic: CQRS bus wrappers
-  (`MessengerCommandBus`/`MessengerQueryBus`), the CSRF double-submit listener, the JSON exception listener,
-  the `iss`-claim JWT listener, and the stateless-JWT authentication pieces (`StatelessJwtAuthenticator`,
-  `JwtUser`, `IntegrationEventPublisher`). No shared entities, no shared repositories.
+- **`packages/shared-kernel`** — shared technical adapters and a deliberately small set of shared domain
+  primitives. `SharedKernel/Infrastructure` contains CQRS bus wrappers (`MessengerCommandBus`/
+  `MessengerQueryBus`), HTTP/security listeners and stateless-JWT helpers; `SharedKernel/Application` contains
+  bus ports; `SharedKernel/Domain` contains generic domain-event plumbing, shared exceptions, and the `Money`/
+  `Currency` value objects. It contains no service-specific entities or repositories. Keep this package small:
+  any business concept that belongs to one bounded context must stay in that service, not migrate here.
 - **`packages/integration-events`** — the wire contracts published to/consumed from RabbitMQ (e.g.
   `IntegrationEvents\Identity\UserCreated`). Deliberately tiny, scalars-only DTOs, versioned by adding new
   classes rather than editing existing ones. This is the one intentional shared dependency between publisher
@@ -63,16 +65,33 @@ between services except:
   `EventDispatcherInterface`; here it crosses a real process boundary. Identity's
   `PublishUserCreatedIntegrationEvent` (an `EventSubscriberInterface`, listening to the *domain* event
   `App\Domain\Auth\Event\UserCreated`) translates it into the *integration* event
-  `IntegrationEvents\Identity\UserCreated` and dispatches it on a dedicated `event.bus`, stamped with an
-  `AmqpStamp` routing key (`identity.user_created`). Notification's `OnUserCreatedIntegrationEvent` consumes
-  it and dispatches a local `CreateNotificationCommand` — same shape as the monolith's original in-process
-  handler, just running in a different container.
+  `IntegrationEvents\Identity\UserCreated` and dispatches it on a dedicated `event.bus`. Notification's
+  `OnUserCreatedIntegrationEvent` consumes it and dispatches a local `CreateNotificationCommand` — same shape
+  as the monolith's original in-process handler, just running in a different container.
+- **Transactional outbox, not a direct broker publish**: `event.bus` routes every integration event to each
+  publishing service's own `async` (Doctrine) transport, not straight to `amqp`. That transport shares the
+  entity manager's DB connection, so the outbox row commits atomically with whatever domain write raised the
+  event — either both happen or neither does. A dedicated per-event relay handler (Identity's
+  `RelayUserCreatedToBroker`), consumed from the outbox by the `identity-worker`, is what actually forwards
+  the event to the real `domain_events` exchange with its `AmqpStamp` routing key. If RabbitMQ is briefly
+  down, only the relay step retries (per `async`'s retry strategy) — a broker outage can never lose the event
+  or block the request that raised it, the way publishing straight to `amqp` at dispatch time would.
+- **Dead-letter transport**: every service configures `failure_transport: failed` (`doctrine://default?queue_name=failed`).
+  A message that exhausts its retries — on the outbox relay, or on Notification's `amqp` consumption — lands
+  there instead of being silently dropped. Inspect/replay with `messenger:failed:show` / `messenger:failed:retry`.
+- **Idempotent consumption**: RabbitMQ is at-least-once, so `IntegrationEvents\Identity\UserCreated` carries an
+  `eventId` generated once at the source. `CreateNotificationHandler` checks it against Notification's
+  `processed_integration_events` ledger (a dedup table, not a domain concept of the Notification bounded
+  context) before creating anything, and records it in the same flush as the `Notification` insert — a
+  redelivered event is a no-op, not a duplicate notification.
 - **Why a separate `event.bus`** instead of routing through `command.bus`: Messenger's consume worker
   resolves the bus a message came from via the `BusNameStamp` recorded when it was first dispatched. Every
   service that might touch an integration event (publish or consume) declares an identically-named
   `event.bus`, purely so that stamp resolves on both sides — Notification never dispatches onto its own
   `event.bus` directly, it only needs the name to exist for the consume worker to find `event.bus`-registered
-  handlers.
+  handlers. `RelayUserCreatedToBroker` sends straight to the `amqp` transport (bypassing bus middleware, which
+  is what would normally add this stamp), so it stamps `BusNameStamp('event.bus')` on the outgoing envelope
+  itself — without it, Notification's consumer falls back to its default bus and finds no handler at all.
 - **Sync (REST)**, Phase 2 only: reserved for the one place the monolith has real cross-aggregate business
   logic, not just a side effect — `PlaceOrderHandler`/`AddOrderLineHandler` synchronously reserving stock and
   validating the customer. Becomes an HTTP call to Catalog/Customer over the internal Docker network (not
@@ -118,3 +137,24 @@ production guidance:
   service's `migrations/` directory is empty) rather than hand-authored and committed up front, since each
   service's entity set was trimmed down from the monolith. Convenient for standing this up quickly; a real
   project would commit reviewed migrations instead of trusting an auto-diff.
+
+## Architecture checks and current compromises
+
+Run `make deptrac` to verify dependencies between each service's `Domain`, `Application`, and
+`Infrastructure` layers, and between those layers and the shared-kernel / integration-event packages. The
+Domain may use only the shared-kernel Domain primitives; Application depends on Domain, application ports,
+and integration contracts; Infrastructure is the framework-facing adapter layer. These rules check source
+packages included in the Deptrac configuration; they do not prove that every framework type is absent from
+Domain (for example, Identity's User model currently implements Symfony security interfaces and uses Doctrine
+collections). Treat that as a known DDD compromise to reduce deliberately over time, not as a clean-architecture
+ideal.
+
+Notification's `ProcessedIntegrationEvent` is an Infrastructure persistence record, not a Notification
+domain concept. Its repository is exposed to the application through an application port, keeping Doctrine
+out of the handler. This is the pattern to follow for technical persistence concerns that support a use case
+without representing business state.
+
+`make quality` runs tests, PHPStan, formatting, Deptrac, and Composer security audits. The same command runs
+in GitHub Actions on pushes to `main` and pull requests; CI starts the local Compose stack first so functional
+and integration tests can use the service's PostgreSQL test database. RabbitMQ is available in the stack for
+message-flow checks; tests that require a live broker should be explicit about that dependency.

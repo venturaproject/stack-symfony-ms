@@ -32,7 +32,7 @@ final readonly class UserResponse
     public static function from(User $user): self
     {
         return new self(
-            id: $user->getId(),
+            id: $user->getIdOrFail(),
             email: $user->getEmail(),
             firstName: $user->getFirstName(),
             lastName: $user->getLastName(),

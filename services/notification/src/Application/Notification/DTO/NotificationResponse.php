@@ -22,7 +22,7 @@ final readonly class NotificationResponse
     public static function from(Notification $n): self
     {
         return new self(
-            id: $n->getId(),
+            id: $n->getIdOrFail(),
             title: $n->getTitle(),
             message: $n->getMessage(),
             createdAt: $n->getCreatedAt()->format(DateTimeInterface::ATOM),

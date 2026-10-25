@@ -28,7 +28,7 @@ final readonly class RoleResponse
         );
 
         return new self(
-            id: $role->getId(),
+            id: $role->getIdOrFail(),
             name: $role->getName(),
             description: $role->getDescription(),
             permissions: $permissions,
