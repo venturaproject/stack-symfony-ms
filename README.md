@@ -1,4 +1,4 @@
-# Symfony Microservices Boilerplate
+![Symfony Microservices — PHP and Symfony 7.4 LTS services](docs/symfony-header.png)
 
 Functional Symfony 7.4 LTS reference (PHP 8.5.12 development images) for building DDD/CQRS microservices locally with Docker Compose. It provides independently running services, asynchronous integration events, stateless JWT authentication, a single API entrypoint, and an isolated database per service.
 
