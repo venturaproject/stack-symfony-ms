@@ -118,7 +118,8 @@ services:
     entrypoint: ["/entrypoint.worker.sh"]
     environment: *notification-env
     volumes: *notification-volumes
-    restart: unless-stopped
+    # This is a local development stack; start it manually with Compose, not on Docker startup.
+    restart: "no"
     depends_on:
       notification:
         condition: service_healthy
